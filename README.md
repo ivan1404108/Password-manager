@@ -23,17 +23,11 @@ java -jar build/libs/PasswordManagerGUI-all.jar
 # Убедитесь, что у вас установлен JDK 17+
 java --version
 
-# 1. Собрать и запустить в консольном режиме
+# 1. Собрать и запустить проект
 ./gradlew run
 
-# 2. Собрать и запустить с графическим интерфейсом (автоматически)
-./gradlew run --args="gui"
-
-# 3. Собрать проект
-./gradlew build
-
-# 4. Запустить тесты
+# 2. Запустить тесты
 ./gradlew test
 
-# 5. Сгенерировать JavaDoc документацию
+# 3. Сгенерировать JavaDoc документацию
 ./gradlew generateUTF8Javadoc
