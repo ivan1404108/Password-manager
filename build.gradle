@@ -1,0 +1,163 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'com.passwordmanager'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = "17"
+    modules = [ 'javafx.controls', 'javafx.fxml' ]
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+    options.addStringOption('charset', 'UTF-8')
+    options.addStringOption('docencoding', 'UTF-8')
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty "file.encoding", "UTF-8"
+}
+
+run {
+    systemProperty "file.encoding", "UTF-8"
+    systemProperty "console.encoding", "UTF-8"
+    systemProperty "sun.stdout.encoding", "UTF-8"
+    systemProperty "sun.stderr.encoding", "UTF-8"
+}
+
+dependencies {
+    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+}
+
+application {
+    mainClass = 'passwordmanager.Main'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty "file.encoding", "UTF-8"
+}
+
+// Обычный JAR (без зависимостей)
+jar {
+    manifest {
+        attributes 'Main-Class': 'passwordmanager.Main'
+        attributes 'Implementation-Vendor-Id': 'com.passwordmanager'
+        attributes 'Created-By': 'Password Manager Application'
+        attributes 'Build-Jdk': JavaVersion.current()
+    }
+}
+
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Creates a fat JAR with all dependencies'
+    archiveBaseName = 'PasswordManagerGUI'
+    archiveClassifier = 'all'
+    archiveVersion = ''
+
+    manifest {
+        attributes 'Main-Class': 'passwordmanager.Main'
+        attributes 'Implementation-Vendor-Id': 'com.passwordmanager'
+        attributes 'Created-By': 'Password Manager Application'
+        attributes 'Build-Jdk': JavaVersion.current()
+    }
+
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+
+    from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it).matching {
+                exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+            }
+        }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    doLast {
+        println "Fat JAR создан: ${archiveFile.get()}"
+        println "Размер: ${archiveFile.get().asFile.length() / 1024 / 1024} MB"
+    }
+}
+
+tasks.register('uberJar', Jar) {
+    group = 'build'
+    description = 'Creates an executable JAR with dependencies'
+    archiveBaseName = 'PasswordManager'
+    archiveClassifier = 'uber'
+    archiveVersion = ''
+
+    manifest {
+        attributes 'Main-Class': 'passwordmanager.Main'
+    }
+
+    from sourceSets.main.output
+
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType(JavaExec).configureEach {
+    systemProperty "file.encoding", "UTF-8"
+    systemProperty "console.encoding", "UTF-8"
+}
+
+tasks.register('generateUTF8Javadoc', Javadoc) {
+    group = 'documentation'
+    description = 'Generates UTF-8 encoded Javadoc'
+    source = sourceSets.main.allJava
+    classpath = sourceSets.main.compileClasspath
+    destinationDir = file("${buildDir}/docs/javadoc")
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.docEncoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+tasks.register('buildAll') {
+    group = 'build'
+    description = 'Builds all JAR files'
+    dependsOn 'build', 'fatJar', 'uberJar'
+
+    doLast {
+        println "\n=== СОБРАННЫЕ JAR ФАЙЛЫ ==="
+        println "Обычный JAR: build/libs/${jar.archiveFileName.get()}"
+        println "Fat JAR: build/libs/${tasks.named('fatJar').get().archiveFileName.get()}"
+        println "Uber JAR: build/libs/${tasks.named('uberJar').get().archiveFileName.get()}"
+    }
+}
+
+tasks.register('cleanBuild') {
+    group = 'build'
+    description = 'Clean and rebuild everything'
+    dependsOn 'clean', 'buildAll'
+}
